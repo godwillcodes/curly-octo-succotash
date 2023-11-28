@@ -1,25 +1,3 @@
-<?php
-   /**
-    *
-    * Template Name: Search Results - Senior
-    *
-    * The template for displaying content from pagebuilder.
-    *
-    * This is the template that displays pages without title in fullwidth layout. Suitable for use with Pagebuilder.
-    *
-    * @link https://codex.wordpress.org/Template_Hierarchy
-    *
-    * @package PesaBazaar
-    */
-   
-   get_header();
-   get_template_part( 'template-parts/medical/search-banner');
-   get_template_part( 'template-parts/medical/search-radio');
-   get_template_part( 'template-parts/adult/search-results');
-   get_template_part( 'template-parts/cta');
-   get_template_part( 'template-parts/secondary-footer');
-   get_footer();
-   ?>
 <script>
    var app = new Vue({
     el: "#page",
@@ -33,7 +11,8 @@
    free_benefits: [],
    additional_benefits: [],
         step: 1,
-        selectedCompanies: [],
+        selectedCompanies: '',
+		sortOrder: 'asc', // Default sorting order
    selectedOptions: [],
         submitting: true,
         lead: null,
@@ -44,11 +23,17 @@
    totalOutpatient: 0,
 		showFeatures: false,
         detailsVisible: true,
-		selectedCompanies: '',
-		sortOrder: 'asc', // Default sorting order
+		selectedResult: null,
+		grandtotaldisplay: null,
 		addedOutPatient: null,
+		fullSelectedBenefits: null,
+		emaildata: {
+			action: "success",
+			id: null,
+			data: null,
+		},
         res: {
-            action: "getSeniorMedicalResults",
+            action: "getMedicalResults",
             id: null,
         },
     },
@@ -57,20 +42,16 @@
         this.showMoreDetails = false; // Set showContent to false initially
     },
    computed: {
-   total() {
-   return this.selectedOptions.reduce((acc, cur) => acc + Number(cur), 0);
+	   total() {
+	   return this.selectedOptions.reduce((acc, cur) => acc + Number(cur), 0);
+	   },
    },
-   },
-   // 	filters:{
-   // 		ageCalculator(val){
-   // 			console.log(val);
-   // 			return true;
-   
-   // 		}
-   // 	},
     methods: {
 		toggleFeatureList() {
       this.showFeatures = !this.showFeatures;
+    },
+		 sortByPrice(order) {
+      this.sortOrder = order;
     },
    ageCalculator(ageBrackets, dateOfBirth){
      var currentDate = new Date();
@@ -102,9 +83,9 @@
 		  // Return the principal based on the age bracket
 		  
 		  var tax = parseFloat(bracket.principal)*parseFloat(tax_rate)/100;
-		  console.log(tax_rate);
-		  console.log(bracket.principal);
-		  console.log(tax);
+// 		  console.log(tax_rate);
+// 		  console.log(bracket.principal);
+// 		  console.log(tax);
 		  return (tax + parseFloat(bracket.principal) + parseFloat(stamp_duty));
    		}
      }
@@ -138,11 +119,12 @@
     num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return num_parts.join(".");
    },
-		formatPercentage(value) {
-			return value + "%";
-		},
+	formatPercentage(value) {
+		return value + "%";
+	},
    outpatientCover(val, data, fulldata) {
 	   this.addedOutPatient = val;
+	   console.log("Added OutPatient:", this.addedOutPatient);
 		this.showOptionalBenefits = true;
 		this.totalOutpatient = val;
 		var container = document.getElementById('666' + data.id);
@@ -154,6 +136,8 @@
 		var grand = parseFloat(val) + parseFloat(rate) + parseFloat(fulldata.stamp_duty);
 		grandTotal = ((parseFloat(fulldata.tax_rate) / 100) * grand) + grand;
         container.innerHTML = this.formatCurrency(grandTotal);
+	   
+	   this.grandtotaldisplay = grandTotal;
 	   
    },
 		removeOutpatientCover(data) {
@@ -167,6 +151,29 @@
 			var rateFine = arrFallBac.join('');
 			// Update the value of 'container' to use 'fallBackContainer'
 			container.innerHTML = this.formatCurrency(rateFine);
+			
+			const existingData = localStorage.getItem("myBazaarCartMedical_" + data.id);
+			
+			if (undefined !== existingData && existingData != null) {
+				var res = JSON.parse(existingData);
+				
+				var data1 = res.data;
+				var total1 = res.total;
+				var benefit1 = [];
+				var client1 = res.client;
+				
+				const selectedBenefits = {
+					data: data1,
+					total: total1,
+					benefit: benefit1,
+					client: client1
+				};
+				
+				localStorage.setItem("myBazaarCartMedical_" + data.id, JSON.stringify(selectedBenefits));
+			}
+			
+			this.fullSelectedBenefits = null;
+			this.grandtotaldisplay = rateFine;
 		},
 
 
@@ -230,6 +237,10 @@
                 fullTotal = nontaxbnefit + parseFloat(rate) + parseFloat(fulldata.stamp_duty) + totalOutpatient;
    
                 grandTotal = ((parseFloat(fulldata.tax_rate) / 100) * fullTotal) + fullTotal;
+				
+				this.grandtotaldisplay = grandTotal;
+				
+				this.fullSelectedBenefits = storageBenefit;
    
                 container.innerHTML = this.formatCurrency(grandTotal);
    
@@ -253,6 +264,10 @@
                 fullTotal = nontaxbnefit + parseFloat(rate) + parseFloat(fulldata.stamp_duty) + totalOutpatient;
    
                 grandTotal = ((parseFloat(fulldata.tax_rate) / 100) * fullTotal) + fullTotal;
+				
+				this.grandtotaldisplay = grandTotal;
+				
+				this.fullSelectedBenefits = storageBenefit;
    
                 container.innerHTML = this.formatCurrency(grandTotal);
             }
@@ -284,6 +299,8 @@
    
                 grandTotal = benefitsTotal + totalTax;
             }
+			
+			this.grandtotaldisplay = grandTotal;
    
             container.innerHTML = this.formatCurrency(grandTotal);
    
@@ -295,6 +312,8 @@
                 benefit: benefitdata,
                 client: client
             };
+			
+			this.fullSelectedBenefits = selectedBenefits;
    
             localStorage.setItem("myBazaarCartMedical_" + data.id, JSON.stringify(selectedBenefits)); // Unique storage key
         }
@@ -318,6 +337,8 @@
    
             grandTotal = benefitsTotal + totalTax;
         }
+		
+		this.grandtotaldisplay = grandTotal;
    
         container.innerHTML = this.formatCurrency(grandTotal);
    
@@ -329,17 +350,67 @@
             benefit: benefitdata,
             client: client
         };
+		
+		this.fullSelectedBenefits = benefitdata;
    
         localStorage.setItem("myBazaarCartMedical_" + data.id, JSON.stringify(selectedBenefits)); // Unique storage key
-    }
+	}
    },
    
-   
-   
-   redirectitosuccesspage(){
-   let url = '<?php echo site_url();?>/thank-you/?product=medical';
-   window.location.replace(url);
-   },
+	   redirectitosuccesspage(id){
+		const existingData = localStorage.getItem("myBazaarCartMedical_"+id);
+
+		if (undefined !== existingData && existingData != null) {
+			var res = JSON.parse(existingData);
+			this.emaildata.id = id;
+			this.emaildata.data = res.client;
+			
+			if (res.data.id == id) {
+				var storageClient = res.client;
+				var postdata = this.emaildata;
+				const formData = new FormData();
+				for (var key in postdata) {
+					formData.append(key, postdata[key]);
+				}
+				try {
+					fetch("<?php echo admin_url('admin-ajax.php'); ?>", {
+						method: "POST",
+						body: formData,
+					}).then((res) => {
+						return res.json();
+					}).then((data) => {
+// 						this.comparisondata = data.data;
+// 						this.lead = data.clientdata;
+						if(data != null && data.code === 422 ){
+// 							this.errors = data;
+							console.log(data);
+							// console.log(data[0].phone)
+						}else{
+// 							let url = '<?php echo site_url();?>/thank-you/?product=medical';
+// 							window.location.replace(url);
+							console.log(data);
+// 							
+// 							this.applynow = false
+// 							this.successModal = true
+// 							let url = new URL(window.location.href);
+// 							url += '&state=success'
+						}
+					}).catch((err) => console.error(err));
+					this.submitting = false;
+				} catch (e) {
+					console.log("error", e);
+					this.submitting = false;
+					return;
+				}
+			}
+			
+			let url = '<?php echo site_url();?>/thank-you/?product=medical';
+			window.location.replace(url);
+		}else{
+			let url = '<?php echo site_url();?>/thank-you/?product=medical';
+			window.location.replace(url);
+		}
+	   },
         async getresults(id) {
             console.log(id);
             this.res.id = id;
@@ -372,13 +443,16 @@
             }
         },
         toggleBenefits(data) {
+			this.grandtotaldisplay = document.getElementById('666'+data).innerHTML;
+			
+			this.selectedResult = data;
             this.showBenefits = !this.showBenefits;
             this.showMoreDetails = false;
 			const button = document.getElementById('benefits-btn' + data);
-			  if (button) {
-				// Hide the button by setting display to 'none'
-				button.style.display = 'none';
-			  }
+		  if (button) {
+			// Hide the button by setting display to 'none'
+			button.style.display = 'none';
+		  }
         },
         toggleDetails() {
             this.showMoreDetails = !this.showMoreDetails;
@@ -392,6 +466,7 @@
       
     },
     mounted() {
+		localStorage.clear();
         let uri = window.location.href.split("?");
         if (uri.length >= 2) {
             let vars = uri[1].split("&");
